@@ -1,0 +1,40 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Builds against the SDK source in the monorepo, so it works before `Loams`
+  # 0.1.0 is on NuGet.
+  build-monorepo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ostrium-labs/loams
+          path: loams
+          sparse-checkout: sdks/csharp
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: |
+          for p in quickstart live-apps minimal-api; do
+            dotnet build examples/$p -c Release \
+              -p:LoamsSource=monorepo -p:LoamsProject=$PWD/loams/sdks/csharp/src/Loams/Loams.csproj
+          done
+
+  # Builds against the published package. Informational until 0.1.0 is on NuGet.
+  build-nuget:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: |
+          for p in quickstart live-apps minimal-api; do
+            dotnet build examples/$p -c Release
+          done

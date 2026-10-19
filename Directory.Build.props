@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    Every example takes the SDK from one place, decided here.
+
+    Default: the `Loams` NuGet package at $(LoamsVersion).
+    `-p:LoamsSource=monorepo -p:LoamsProject=/path/to/loams/sdks/csharp/src/Loams/Loams.csproj`
+    builds against a checkout of ostrium-labs/loams instead, which is what CI does
+    until `Loams` 0.1.0 is on NuGet.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LoamsVersion Condition="'$(LoamsVersion)' == ''">0.1.0</LoamsVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(LoamsSource)' == 'monorepo'">
+    <ProjectReference Include="$(LoamsProject)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(LoamsSource)' != 'monorepo'">
+    <PackageReference Include="Loams" Version="$(LoamsVersion)" />
+  </ItemGroup>
+</Project>
