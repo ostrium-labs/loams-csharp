@@ -10,7 +10,7 @@ dotnet run --project examples/quickstart
 Expected output against a dev engine:
 
 ```
-Loams 0.1.0 (Oss)
+Loams 0.1.2 (Oss)
 serves: loams.instance.v1, loams.collection.v1, ...
 principal: dev-loopback (Local developer)
 ```

@@ -1,6 +1,9 @@
 # Loams C# examples
 
-Example apps for the [Loams SDK for .NET](https://github.com/ostrium-labs/loams/tree/dev/sdks/csharp) (NuGet `Loams`). Loams is an open-source, Rust data platform: one engine and one Connect API for documents, search, graph and live queries. The SDK talks to it with one `LoamsClient` and namespaced modules.
+These examples target **Loams SDK 0.1.2**. Installation and CI require the matching
+0.1.2 packages and release tags to be published.
+
+Example apps for the [Loams SDK for .NET](https://github.com/ostrium-labs/loams/tree/v0.1.2/sdks/csharp) (NuGet `Loams`). Loams is an open-source, Rust data platform: one engine and one Connect API for documents, search, graph and live queries. The SDK talks to it with one `LoamsClient` and namespaced modules.
 
 | Example | What it shows |
 |---|---|
@@ -8,19 +11,19 @@ Example apps for the [Loams SDK for .NET](https://github.com/ostrium-labs/loams/
 | [`examples/live-apps`](examples/live-apps) | The Live app directory (`client.LiveAdmin`): create, get, list |
 | [`examples/minimal-api`](examples/minimal-api) | An ASP.NET Core minimal API with one shared `LoamsClient` |
 
-The C# SDK 0.1.0 covers the instance, live, live admin, tables, approvals, devices, notifications and operations modules. The collection, hybrid search and SQL APIs are not in the C# SDK yet, so these examples do not use them. They will be added when the SDK has them.
+The SDK also provides namespaces, collections, documents, search, vector, graph, SQL and streams. These examples focus on instance discovery, Live app administration and ASP.NET integration. See the [SDK app example](https://github.com/ostrium-labs/loams/tree/v0.1.2/sdks/csharp/examples) for the app modules.
 
 ## Install
 
 ```console
-dotnet add package Loams --version 0.1.0
+dotnet add package Loams --version 0.1.2
 ```
 
-The examples take the SDK from NuGet at `$(LoamsVersion)` (default `0.1.0`, see `Directory.Build.props`). If `Loams` 0.1.0 is not on NuGet yet, build against a checkout of the monorepo:
+The examples take the SDK from NuGet at `$(LoamsVersion)` (default `0.1.2`, see `Directory.Build.props`). For explicit local SDK development, build against a matching source checkout (CI uses NuGet):
 
 ```console
-git clone https://github.com/ostrium-labs/loams
-dotnet build examples/quickstart -p:LoamsSource=monorepo -p:LoamsProject=$PWD/../loams/sdks/csharp/src/Loams/Loams.csproj
+git clone --branch v0.1.2 --depth 1 https://github.com/ostrium-labs/loams
+dotnet build examples/quickstart -p:LoamsSource=monorepo -p:LoamsProject=$PWD/loams/sdks/csharp/src/Loams/Loams.csproj
 ```
 
 ## Run against a local engine
