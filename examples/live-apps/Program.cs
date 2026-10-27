@@ -5,9 +5,8 @@
 //   export LOAMS_ENDPOINT=http://127.0.0.1:8080
 //   dotnet run --project examples/live-apps
 //
-// Note: this SDK (0.1.0) has the instance, live, live admin, tables, approvals,
-// devices, notifications and operations modules. The collection, search and SQL
-// APIs are not in the C# SDK yet, so there is no hybrid-search or SQL example here.
+// This example focuses on Live app administration. The SDK also provides
+// collection, search, graph, SQL and stream modules.
 
 using Loams;
 using Loams.Live.V1;

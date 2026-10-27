@@ -1,57 +1,96 @@
-// Quickstart: connect, ask the instance what it is, who you are, and whether this
-// SDK and the server speak the same packages.
+// The 0.1.2 SDK tour: instance/system, namespaces, collections, documents,
+// text/vector/hybrid search, graph, SQL and streams. All writes stay in
+// examples-csharp; graph and stream names are also scoped to this example.
 //
-//   export LOAMS_ENDPOINT=http://127.0.0.1:8080   # `loams dev`
-//   export LOAMS_API_KEY=...                      # a loopback dev engine needs none
-//   dotnet run --project examples/quickstart
+//   LOAMS_ENDPOINT=http://127.0.0.1:8080 dotnet run --project examples/quickstart
 
 using Loams;
-using Loams.Instance.V1;
+using Loams.Collection.V1;
+using Fusion = Loams.Fusion;
 
-var endpoint = System.Environment.GetEnvironmentVariable("LOAMS_ENDPOINT") ?? "http://127.0.0.1:8080";
-var apiKey = System.Environment.GetEnvironmentVariable("LOAMS_API_KEY");
+const string Namespace = "examples-csharp";
+const string Collection = "sdk_tour";
 
-await using var client = new LoamsClient(new LoamsClientOptions
-{
-    Endpoint = endpoint,
-    // No key is fine against a loopback `loams dev`; GetInstance needs none anyway.
-    Auth = string.IsNullOrEmpty(apiKey) ? null : new ApiKeyTokenSource(apiKey),
-});
+var options = LoamsClientOptions.FromEnv() with { SessionConsistency = true, Namespace = Namespace };
+await using var loams = new LoamsClient(options);
 
 try
 {
-    // The first call any client makes: what is this instance? Needs no credentials.
-    var info = await client.Instance.GetInstanceAsync(new GetInstanceRequest());
-    Console.WriteLine($"{info.Name} {info.ServerVersion} ({info.Edition})");
-    Console.WriteLine($"serves: {string.Join(", ", info.ApiVersions)}");
+    // Instance and system modules: discover the build and check optional features.
+    var info = await loams.Instance.GetInstanceAsync();
+    var who = await loams.Instance.WhoAmIAsync();
+    Console.WriteLine($"connected to {info.Name} {info.ServerVersion} as {who.Principal?.Id}");
+    var version = await loams.System.VersionAsync();
+    var catalogue = await loams.System.CatalogueAsync();
+    Console.WriteLine($"SDK/server compatible: {version.Compatible}; served packages: {catalogue.Served.Count}");
 
-    // Who the server thinks you are. A dev engine with auth off admits you as the
-    // `dev-loopback` principal.
-    var who = await client.Instance.WhoAmIAsync(new WhoAmIRequest());
-    Console.WriteLine($"principal: {who.Principal?.Id} ({who.Principal?.DisplayName})");
+    // Namespace and collection modules. Existing namespace/collection are safe;
+    // the same schema is reused and no data is dropped.
+    try { await loams.Namespaces.CreateAsync(Namespace); } catch (AlreadyExistsError) { }
+    var schema = new Schema().Text("title").Text("body").Keyword("tags").I64("n").Vector("embedding", 4);
+    try { await loams.Collections.CreateAsync(Collection, schema); } catch (AlreadyExistsError) { }
+    var notes = loams.Collection(Collection);
 
-    // R9 version check: a package this SDK speaks that the server does not serve is
-    // reported, not thrown.
-    var version = await client.System.VersionAsync();
-    Console.WriteLine($"proto rev {version.ProtoRev}, compatible: {version.Compatible}");
-    if (version.Missing.Count > 0)
+    // Documents module through the collection handle: upsert, get, patch, count
+    // and scroll. Stable IDs make reruns repeatable.
+    Doc Note(ulong id, string title, string body, string[] tags, float[] vector) =>
+        new(id, new Dictionary<string, object?> { ["title"] = title, ["body"] = body, ["tags"] = tags, ["n"] = (long)id },
+            new Dictionary<string, float[]> { ["embedding"] = vector });
+    var write = await notes.UpsertAsync([
+        Note(1, "Refund policy", "Refunds are issued within 14 days.", ["policy", "billing"], [1f, 0f, 0f, 0f]),
+        Note(2, "Shipping", "Orders ship in two business days.", ["shipping"], [0f, 1f, 0f, 0f]),
+        Note(3, "Refund window", "The refund window closes after 30 days.", ["policy"], [0.9f, 0.1f, 0f, 0f]),
+    ]);
+    Console.WriteLine($"upsert token: {write.Token}");
+    Console.WriteLine($"get returned {(await notes.GetAsync([1, 3])).Documents.Count} documents");
+    await notes.PatchAsync(2, set: new { title = "Shipping times" });
+    Console.WriteLine($"policy count: {await notes.CountAsync(Filter.Eq("tags", "policy"))}");
+    await foreach (var doc in notes.ScrollAllAsync(limit: 10))
+        Console.WriteLine($"doc {doc.Id.Text}: {doc.Source.Fields["title"].StringValue}");
+
+    // Search and vector modules: filtered text, standalone vector, and hybrid.
+    var text = await loams.Search.QueryAsync(Search.On(Collection).Text("refund", "body")
+        .Filter(Filter.Eq("tags", "policy")).Select(include: ["title"]).Sort(Sort.Score(), Sort.Pk()).Limit(3));
+    var vector = await loams.Vector.SearchAsync(Collection, [1f, 0f, 0f, 0f], field: "embedding", limit: 3);
+    var hybrid = await loams.Search.QueryAsync(Search.On(Collection).Text("refund", "body")
+        .Vector("embedding", [1f, 0f, 0f, 0f]).Fuse(Fusion.Rrf(60)).Limit(3));
+    Console.WriteLine($"search hits: {text.Hits.Count}; vector hits: {vector.Hits.Count}; hybrid hits: {hybrid.Hits.Count}");
+
+    // SQL module over the same collection, with a bound parameter.
+    var sql = await loams.Sql.QueryAsync("SELECT n, title FROM sdk_tour WHERE n > $1 ORDER BY n", [1]);
+    Console.WriteLine($"SQL rows: {sql.Records().Count}");
+
+    // Streams module with a producer identity/sequence: rerunning will not append
+    // the same logical batch twice. Read back only this batch's offsets.
+    await loams.Streams.CreateAsync("sdk-tour-events", partitions: 1);
+    var batch = await loams.Streams.ProduceAsync("sdk-tour-events", 0,
+        [new ProducerRecord("1", new Dictionary<string, object?> { ["kind"] = "note-upserted", ["id"] = 1 })],
+        producerId: "examples-csharp-sdk-tour", producerSeq: 1);
+    await foreach (var record in loams.Streams.Subscribe("sdk-tour-events", 0, fromOffset: batch.BaseOffset))
     {
-        Console.WriteLine($"server does not serve: {string.Join(", ", version.Missing)}");
+        Console.WriteLine($"stream event at {record.Offset}: {record.Text}");
+        if (record.Offset >= batch.LastOffset) break;
     }
 
-    // Feature detection without calling the module: one cached GetInstance.
-    var catalogue = await client.System.CatalogueAsync();
-    Console.WriteLine($"available packages: {catalogue.Served.Count}, unavailable: {catalogue.Unavailable.Count}");
+    // Graph is experimental and optional. Only create a namespaced demo graph and
+    // run a read-only query; do not delete user data on exit.
+    if (await loams.System.AvailableAsync("graph"))
+    {
+        try { await loams.Graph.CreateAsync("examples_csharp_sdk_tour"); } catch (AlreadyExistsError) { }
+        var graph = await loams.Graph.QueryAsync("examples_csharp_sdk_tour", "RETURN 1 AS ready", readOnly: true);
+        Console.WriteLine($"graph rows: {graph.Rows.Rows.Count}");
+    }
+    else Console.WriteLine("graph: not in this build");
 }
 catch (FeatureNotInVariantError e)
 {
-    Console.Error.WriteLine($"this instance does not carry that package (variant '{e.Variant}'): {e.Message}");
+    Console.Error.WriteLine($"optional SDK feature unavailable ({e.Variant}): {e.Message}");
     return 1;
 }
 catch (LoamsError e)
 {
-    // A reason is a stable code; the message is for people.
     Console.Error.WriteLine($"loams error {e.Code}/{e.Reason}: {e.Message}");
     return 1;
 }
+
 return 0;
