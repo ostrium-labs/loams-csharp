@@ -1,17 +1,17 @@
 # Loams C# examples
 
-These examples target **Loams SDK 0.1.2**. Installation and CI require the matching
-0.1.2 packages and release tags to be published.
+These examples target the published **Loams SDK 0.1.2** release, available as
+the `Loams` NuGet package.
 
 Example apps for the [Loams SDK for .NET](https://github.com/ostrium-labs/loams/tree/v0.1.2/sdks/csharp) (NuGet `Loams`). Loams is an open-source, Rust data platform: one engine and one Connect API for documents, search, graph and live queries. The SDK talks to it with one `LoamsClient` and namespaced modules.
 
 | Example | What it shows |
 |---|---|
-| [`examples/quickstart`](examples/quickstart) | Connect, `GetInstance`, `WhoAmI`, the version check and feature detection |
+| [`examples/quickstart`](examples/quickstart) | Instance/system, namespaces, collections, documents, text/vector/hybrid search, optional graph, SDK SQL and streams |
 | [`examples/live-apps`](examples/live-apps) | The Live app directory (`client.LiveAdmin`): create, get, list |
 | [`examples/minimal-api`](examples/minimal-api) | An ASP.NET Core minimal API with one shared `LoamsClient` |
 
-The SDK also provides namespaces, collections, documents, search, vector, graph, SQL and streams. These examples focus on instance discovery, Live app administration and ASP.NET integration. See the [SDK app example](https://github.com/ostrium-labs/loams/tree/v0.1.2/sdks/csharp/examples) for the app modules.
+The quickstart exercises the published app modules; `live-apps` and the minimal API retain Live administration and instance/system coverage. The examples do not construct raw Connect or SQL HTTP requests. See the [SDK notes example](https://github.com/ostrium-labs/loams/blob/v0.1.2/sdks/csharp/examples/Notes/Program.cs) for the same 0.1.2 signatures.
 
 ## Install
 
@@ -19,7 +19,7 @@ The SDK also provides namespaces, collections, documents, search, vector, graph,
 dotnet add package Loams --version 0.1.2
 ```
 
-The examples take the SDK from NuGet at `$(LoamsVersion)` (default `0.1.2`, see `Directory.Build.props`). For explicit local SDK development, build against a matching source checkout (CI uses NuGet):
+The examples take the SDK from NuGet at `$(LoamsVersion)` (default exact version `[0.1.2]`, see `Directory.Build.props`). For explicit local SDK development, build against a matching source checkout (CI uses NuGet):
 
 ```console
 git clone --branch v0.1.2 --depth 1 https://github.com/ostrium-labs/loams
@@ -38,11 +38,11 @@ dotnet run --project examples/live-apps
 dotnet run --project examples/minimal-api
 ```
 
-The examples only write to the Live app `examples_csharp_apps` in the namespace `examples-csharp`.
+The examples use the `examples-csharp` namespace. Quickstart writes only the `sdk_tour` collection and its `sdk-tour-events` stream; `live-apps` only creates/reuses `examples_csharp_apps`. Minimal API endpoints are read-only.
 
 ## More
 
 - Docs: <https://loams.dev/docs>
-- Release notes: [docs/release/preview.md](https://github.com/ostrium-labs/loams/blob/dev/docs/release/preview.md)
+- Running Loams: [docs/release/preview.md](https://github.com/ostrium-labs/loams/blob/main/docs/release/preview.md)
 
 Apache-2.0.
